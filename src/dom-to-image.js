@@ -39,7 +39,9 @@
                 return clone;
             })
             .then(function (clone) {
-                return makeSvgDataUri(clone, node.scrollWidth, node.scrollHeight);
+                var width = util.nodeWidth(node);
+                var height = util.nodeHeight(node);
+                return makeSvgDataUri(clone, width,height/*node.scrollWidth, node.scrollHeight*/);
             });
     }
 
@@ -208,7 +210,13 @@
         return Promise.resolve(node)
             .then(function (node) {
                 node.setAttribute('xmlns', 'http://www.w3.org/1999/xhtml');
-                return new XMLSerializer().serializeToString(node);
+                var xml =  new XMLSerializer().serializeToString(node);
+                console.log("*** XML START ***");
+                console.log(xml);
+                console.log("*** XML END ***");
+
+
+                return xml.replace(/margin: 50px/,"");
             })
             .then(util.escapeXhtml)
             .then(function (xhtml) {
@@ -234,8 +242,8 @@
 
         function newCanvas(domNode) {
             var canvas = document.createElement('canvas');
-            canvas.width = domNode.scrollWidth;
-            canvas.height = domNode.scrollHeight;
+            canvas.width = util.nodeWidth(domNode);//domNode.scrollWidth;
+            canvas.height = util.nodeHeight(domNode);//domNode.scrollHeight;
             return canvas;
         }
     }
@@ -254,8 +262,94 @@
             delay: delay,
             asArray: asArray,
             escapeXhtml: escapeXhtml,
-            makeImage: makeImage
+            makeImage: makeImage,
+            nodeWidth: nodeWidth,
+            nodeHeight: nodeHeight
         };
+
+        function nodeWidth(node){
+            var width = node.scrollWidth;
+            var styles = getComputedStyle(node);
+
+            //adding border
+            var borderLeft = styles.getPropertyValue("border-left");
+            if( borderLeft && /^[\d]+/.test(borderLeft)){
+                borderLeft = +borderLeft.match(/^[\d]+/)[0];
+            }
+            else{
+                borderLeft = 0;
+            }
+
+            var borderRight = styles.getPropertyValue("border-right");
+            if( borderRight && /^[\d]+/.test(borderRight)){
+                borderRight = +borderRight.match(/^[\d]+/)[0];
+            }
+            else{
+                borderRight = 0;
+            }
+
+            //adding margin
+            var marginLeft = styles.getPropertyValue("margin-left");
+            if( marginLeft && /^[\d]+/.test(marginLeft)){
+                marginLeft = +marginLeft.match(/^[\d]+/)[0];
+            }
+            else{
+                marginLeft = 0;
+            }
+
+
+            var marginRight = styles.getPropertyValue("margin-right");
+            if( marginRight && /^[\d]+/.test(marginRight)){
+                marginRight = +marginRight.match(/^[\d]+/)[0];
+            }
+            else{
+                marginRight = 0;
+            }
+
+            return width + borderLeft + borderRight /*+ marginLeft + marginRight*/;
+        };
+
+        function nodeHeight(node){
+            var height = node.scrollHeight;
+            var styles = getComputedStyle(node);
+
+            //adding border
+            var borderTop = styles.getPropertyValue("border-top");
+            if( borderTop && /^[\d]+/.test(borderTop)){
+                borderTop = +borderTop.match(/^[\d]+/)[0];
+            }
+            else{
+                borderTop = 0;
+            }
+
+            var borderBottom = styles.getPropertyValue("border-bottom");
+            if( borderBottom && /^[\d]+/.test(borderBottom)){
+                borderBottom = +borderBottom.match(/^[\d]+/)[0];
+            }
+            else{
+                borderBottom = 0;
+            }
+
+            //adding margin
+            var marginTop = styles.getPropertyValue("margin-top");
+            if( marginTop && /^[\d]+/.test(marginTop)){
+                marginTop = +marginTop.match(/^[\d]+/)[0];
+            }
+            else{
+                marginTop = 0;
+            }
+
+
+            var marginBottom = styles.getPropertyValue("margin-bottom");
+            if( marginBottom && /^[\d]+/.test(marginBottom)){
+                marginBottom = +marginBottom.match(/^[\d]+/)[0];
+            }
+            else{
+                marginBottom = 0;
+            }
+
+            return height + borderTop + borderBottom + marginTop + marginBottom;
+        }
 
         function mimes() {
             /*
