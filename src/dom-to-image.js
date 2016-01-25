@@ -5,11 +5,17 @@
     var inliner = newInliner();
     var fontFaces = newFontFaces();
     var images = newImages();
+    var defaultGroupName = "__defult-group-name__";
+    var modifierGroups = {};
+    var errorHandlers = [];
+
 
     global.domtoimage = {
         toSvg: toSvg,
         toPng: toPng,
         toBlob: toBlob,
+        registerModifier: registerModifier,
+        registerErrorHandler: registerErrorHandler,
         impl: {
             fontFaces: fontFaces,
             images: images,
@@ -18,19 +24,79 @@
         }
     };
 
+    function registerErrorHandler(handler){
+        errorHandlers.push(handler);
+    };
+
+
+    /**
+     *
+     * @param type {String} "clone" or "style", "error"
+     * @param modifier {Object} the modifier object
+     * @param filters {Object}
+     * @param priority {number} if two modifiers will be used on the same element the one with the highest priority will win
+     * @param groupName {String} register the modifier to a group name. if not set it wll be set to the default name.
+     */
+    function registerModifier(type,modifier,filters,priority,groupName){
+        filters = filters || {};
+        groupName = groupName || defaultGroupName;
+        priority = priority || 0;
+        if( type !== 'clone' && type !== 'style'&& type !== 'error' ){
+            throw new Error("Unknown modifier type " + type);
+        }
+        if( !modifierGroups[groupName] ){
+            modifierGroups[groupName] = {
+                clone : [],
+                style : []
+            };
+        }
+        var modifiers = modifierGroups[groupName];
+        modifiers[type].push({
+            modifier: modifier,
+            filters: filters,
+            priority: priority
+        });
+    }
+
+    function getModifiers(type,node,groupName){
+        var arr = [];
+        groupName = groupName || defaultGroupName;
+        var modifiers = modifierGroups[groupName] || [];
+
+        for( var i=0 ; i<modifiers[type].length ; i++ ){
+            var modifierObj = modifiers[type][i];
+            if( !Object.keys(modifierObj.filters).length ){
+                arr.push(modifierObj);
+            }
+            else if( modifierObj.filters.check ){
+                if( modifierObj.filters.check(node) ){
+                    arr.push(modifierObj);
+                }
+            }
+            else if(modifierObj.filters.isSelector ){
+                if( $(node).is(modifierObj.filters.isSelector) ){
+                    arr.push(modifierObj);
+                }
+            }
+        }
+
+        return arr;
+    };
+
     /**
      * @param {Node} node - The DOM Node object to render
      * @param {Object} options - Rendering options
      * @param {Function} options.filter - Should return true if passed node should be included in the output
      *          (excluding node means excluding it's children as well)
      * @param {String} options.bgcolor - color for the background, any valid CSS color value
+     * @param {String} options.group - the group name for the modifiers.
      * @return {Promise} - A promise that is fulfilled with a SVG image data URL
      * */
     function toSvg(node, options) {
         options = options || {};
         return Promise.resolve(node)
             .then(function (node) {
-                return cloneNode(node, options.filter);
+                return cloneNode(node, options.filter,options.group);
             })
             .then(embedFonts)
             .then(inlineImages)
@@ -41,7 +107,7 @@
             .then(function (clone) {
                 var width = util.nodeWidth(node);
                 var height = util.nodeHeight(node);
-                return makeSvgDataUri(clone, width,height/*node.scrollWidth, node.scrollHeight*/);
+                return makeSvgDataUri(clone, width,height);
             });
     }
 
@@ -67,35 +133,60 @@
             .then(util.canvasToBlob);
     }
 
-    function cloneNode(node, filter) {
+    function cloneNode(node, filter,groupName) {
         if (filter && !filter(node)) return Promise.resolve();
 
+        groupName = groupName || defaultGroupName;
         return Promise.resolve(node)
             .then(function (node) {
-                return node.cloneNode(false);
+              var modArr = getModifiers("clone",node,groupName);
+              if( !modArr.length ) return node.cloneNode(false);
+              var arr = [];
+              for( var i=0; i<modArr.length ; i++ ){
+                  arr.push( modArr[i].modifier({node:node}));
+              }
+              return Promise.all(arr)
+                .then( function(results){
+                    var candidates = [];
+                    for( var i=0; i<results.length; i++ ){
+                        if(  results[i] && results[i] !== node ){
+                            candidates.push({priority:modArr[i].priority,node:results[i]});
+                        }
+                    }
+                    if( candidates.length ){
+                        candidates.sort( function(a,b){
+                            return b.priority - a.priority;
+                        });
+                        candidates[0].node.__modifierClone = true;
+                        return candidates[0].node;
+                    }
+                    return node.cloneNode(false);
+                },function(){
+                    return node.cloneNode(false);
+                });
             })
             .then(function (clone) {
-                return cloneChildren(node, clone, filter);
+                return cloneChildren(node, clone, filter,groupName);
             })
             .then(function (clone) {
                 return processClone(node, clone);
             });
 
-        function cloneChildren(original, clone, filter) {
+        function cloneChildren(original, clone, filter,groupName) {
             var children = original.childNodes;
             if (children.length === 0) return Promise.resolve(clone);
 
-            return cloneChildrenInOrder(clone, util.asArray(children), filter)
+            return cloneChildrenInOrder(clone, util.asArray(children), filter,groupName)
                 .then(function () {
                     return clone;
                 });
 
-            function cloneChildrenInOrder(parent, children, filter) {
+            function cloneChildrenInOrder(parent, children, filter,groupName) {
                 var done = Promise.resolve();
                 children.forEach(function (child) {
                     done = done
                         .then(function () {
-                            return cloneNode(child, filter);
+                            return cloneNode(child, filter,groupName);
                         })
                         .then(function (childClone) {
                             if (childClone) parent.appendChild(childClone);
@@ -118,6 +209,8 @@
                 });
 
             function cloneStyle() {
+                if( clone.__modifierClone ) return;
+
                 copyStyle(global.window.getComputedStyle(original), clone.style);
 
                 function copyStyle(source, target) {
@@ -137,6 +230,8 @@
             }
 
             function clonePseudoElements() {
+                if( clone.__modifierClone ) return;
+
                 [':before', ':after'].forEach(function (element) {
                     clonePseudoElement(element);
                 });
@@ -180,7 +275,10 @@
             }
 
             function copyUserInput() {
+                if( clone.__modifierClone ) return;
                 if (original instanceof HTMLTextAreaElement) clone.innerHTML = original.value;
+                if( original instanceof HTMLInputElement ) clone.setAttribute("value",original.value);
+
             }
 
             function fixNamespace() {
@@ -464,7 +562,8 @@
                     if (request.readyState !== 4) return;
 
                     if (request.status !== 200) {
-                        reject(new Error('Cannot fetch resource ' + url + ', status: ' + request.status));
+                        //reject(new Error('Cannot fetch resource ' + url + ', status: ' + request.status));
+                        onError(request,url,resolve,reject);
                         return;
                     }
 
@@ -480,6 +579,31 @@
                     reject(new Error('Timeout of ' + TIMEOUT + 'ms occured while fetching resource: ' + url));
                 }
             });
+
+            function onError(request,url,resolve,reject){
+                var modArr = errorHandlers;
+                if( !modArr.length ){
+                    reject(new Error('Cannot fetch resource ' + url + ', status: ' + request.status));
+                    return;
+                }
+                var arr = [];
+                for( var i=0; i<modArr.length ; i++ ){
+                    arr.push( modArr[i]({url:url,type:"network"}));
+                }
+                return Promise.all(arr)
+                  .then( function(results){
+                      for( var i=0; i<results.length; i++ ){
+                          if(  results[i]  ){
+                              resolve(results[i]);
+                              return;
+                          }
+                      }
+                      reject(new Error('Cannot fetch resource ' + url + ', status: ' + request.status));
+
+                  },function(){
+                      reject(new Error('Cannot fetch resource ' + url + ', status: ' + request.status));
+                  });
+            }
         }
 
         function dataAsUrl(content, type) {
@@ -662,6 +786,39 @@
 
                 return Promise.resolve(element.src)
                     .then(get || util.getAndEncode)
+                  //this doesnt work since once we set crossOrigin to the image the browser
+                    //return error when we try to load image outside the origin that doesnt' have allow-origin in the header.
+                  //.then( function(url){
+                  //    return new Promise( function(resolve,reject){
+                  //
+                  //        var img = new Image();
+                  //        img.crossOrigin = "Anonymous";
+                  //
+                  //        img.onload = function(){
+                  //            var canvas = document.createElement("canvas");
+                  //            canvas.width = img.width;
+                  //            canvas.height = img.height;
+                  //
+                  //            // Copy the image contents to the canvas
+                  //            var ctx = canvas.getContext("2d");
+                  //            ctx.drawImage(img, 0, 0);
+                  //
+                  //            // Get the data-URL formatted image
+                  //            // Firefox supports PNG and JPEG. You could check img.src to
+                  //            // guess the original format, but be aware the using "image/jpg"
+                  //            // will re-encode the image.
+                  //            var dataURL = canvas.toDataURL("image/png");
+                  //
+                  //            dataURL =  dataURL.replace(/^data:image\/(png|jpg);base64,/, "");
+                  //            resolve(dataURL);
+                  //        };
+                  //        img.onerror = function(err,a,b){
+                  //
+                  //        }
+                  //        img.src = url;
+                  //    });
+                  //
+                  //})
                     .then(function (data) {
                         return util.dataAsUrl(data, util.mimeType(element.src));
                     })

@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>modifier clone iframe</title>
+  <link href="/test/styles/main.css" type="text/css" rel="stylesheet" media="all"/>
+
+</head>
+<body>
+<div class="intro">
+  <h1>modifier clone iframe</h1>
+  <p>This is a test page to show how the iframe clone modifier is used to replace iframes with some empty div.</p>
+</div>
+<div class="page">
+  <iframe width="560" height="315" src="https://www.youtube.com/embed/GF60Iuh643I" frameborder="0" allowfullscreen></iframe>
+</div>
+<div class="capture">
+  <button>capture with general modifier</button>
+  <button data-name="youtube">capture with youtube modifier</button>
+</div>
+<div class="result"></div>
+
+
+<script src="/bower_components/jquery/dist/jquery.min.js"></script>
+<script src="/src/modifiers/modifier-clone-iframe.js"></script>
+<script src="/src/modifiers/error-handler.js"></script>
+<script src="/src/dom-to-image.js"></script>
+
+
+<script>
+  domtoimage.registerModifier("clone",ModifierCloneIframe,{isSelector:"iframe"},1);
+  domtoimage.registerModifier("clone",ModifierCloneYouTube,{isSelector:"iframe"},1,"youtube");
+  domtoimage.registerErrorHandler(ErrorHandler);
+
+  $(".capture button").click(function(){
+    var node = $(".page").get(0);
+    var name = $(this).attr("data-name");
+
+    domtoimage.toPng(node,{group:name})
+      .then(function (dataUrl) {
+        var img = new Image();
+        img.src = dataUrl;
+        $(".result").html(img);
+      })
+      .catch(function (error) {
+        console.error('oops, something went wrong!', error);
+      });
+  });
+</script>
+
+
+</body>
+</html>

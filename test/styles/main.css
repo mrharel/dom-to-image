@@ -20,3 +20,9 @@ html,body{
     color: #fff;
     border: none;
 }
+
+.intro{
+    border-bottom: 1px solid #eee;
+    background: #ddd;
+    padding: 10px;
+}
