@@ -267,7 +267,7 @@
             nodeHeight: nodeHeight
         };
 
-        function nodeWidth(node){
+        function nodeWidth(node,withMargin){
             var width = node.scrollWidth;
             var styles = getComputedStyle(node);
 
@@ -290,7 +290,7 @@
 
             //adding margin
             var marginLeft = styles.getPropertyValue("margin-left");
-            if( marginLeft && /^[\d]+/.test(marginLeft)){
+            if( withMargin && marginLeft && /^[\d]+/.test(marginLeft)){
                 marginLeft = +marginLeft.match(/^[\d]+/)[0];
             }
             else{
@@ -299,17 +299,17 @@
 
 
             var marginRight = styles.getPropertyValue("margin-right");
-            if( marginRight && /^[\d]+/.test(marginRight)){
+            if( withMargin && marginRight && /^[\d]+/.test(marginRight)){
                 marginRight = +marginRight.match(/^[\d]+/)[0];
             }
             else{
                 marginRight = 0;
             }
 
-            return width + borderLeft + borderRight /*+ marginLeft + marginRight*/;
+            return width + borderLeft + borderRight + marginLeft + marginRight;
         };
 
-        function nodeHeight(node){
+        function nodeHeight(node,withMargin){
             var height = node.scrollHeight;
             var styles = getComputedStyle(node);
 
@@ -332,7 +332,7 @@
 
             //adding margin
             var marginTop = styles.getPropertyValue("margin-top");
-            if( marginTop && /^[\d]+/.test(marginTop)){
+            if( withMargin && marginTop && /^[\d]+/.test(marginTop)){
                 marginTop = +marginTop.match(/^[\d]+/)[0];
             }
             else{
@@ -341,7 +341,7 @@
 
 
             var marginBottom = styles.getPropertyValue("margin-bottom");
-            if( marginBottom && /^[\d]+/.test(marginBottom)){
+            if( withMargin && marginBottom && /^[\d]+/.test(marginBottom)){
                 marginBottom = +marginBottom.match(/^[\d]+/)[0];
             }
             else{
