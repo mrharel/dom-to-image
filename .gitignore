@@ -3,3 +3,4 @@ bower_components
 *.iml
 .tags
 .tags*
+.idea
