@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>main</title>
+    <link href="/test/styles/main.css" type="text/css" rel="stylesheet" media="all"/>
+
+</head>
+<body>
+    <div class="page">
+        <h1>main</h1>
+    </div>
+    <div class="capture">
+        <button>capture</button>
+    </div>
+    <div class="result"></div>
+
+
+    <script src="/bower_components/jquery/dist/jquery.min.js"></script>
+    <script src="/src/dom-to-image.js"></script>
+
+    <script>
+        $(".capture button").click(function(){
+            var node = $(".page").get(0);
+
+            domtoimage.toPng(node)
+                    .then(function (dataUrl) {
+                        var img = new Image();
+                        img.src = dataUrl;
+                        $(".result").html(img);
+                    })
+                    .catch(function (error) {
+                        console.error('oops, something went wrong!', error);
+                    });
+        });
+    </script>
+
+
+</body>
+</html>

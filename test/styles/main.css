@@ -1,0 +1,22 @@
+html,body{
+    background: #eee;
+    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+}
+
+.page{
+    background: #fff;
+    border: 1px solid #333;
+    margin: 50px;
+    padding: 15px;
+}
+
+.capture{
+    margin: 50px;
+}
+
+.capture button{
+    font-size: 24px;
+    background: #0b97c4;
+    color: #fff;
+    border: none;
+}
