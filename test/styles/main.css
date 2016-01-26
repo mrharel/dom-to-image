@@ -4,7 +4,8 @@ html,body{
 }
 
 .page{
-    background: #fff;
+    background: #fff url('http://www.freelargeimages.com/wp-content/uploads/2014/12/Landscape_01.jpg') no-repeat center;
+    background-size:100%;
     border: 1px solid #333;
     margin: 50px;
     padding: 15px;

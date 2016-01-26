@@ -149,7 +149,7 @@
                 .then( function(results){
                     var candidates = [];
                     for( var i=0; i<results.length; i++ ){
-                        if(  results[i] && results[i] !== node ){
+                        if( results[i] !== node ){
                             candidates.push({priority:modArr[i].priority,node:results[i]});
                         }
                     }
@@ -157,8 +157,12 @@
                         candidates.sort( function(a,b){
                             return b.priority - a.priority;
                         });
-                        candidates[0].node.__modifierClone = true;
-                        return candidates[0].node;
+                        if( candidates[0].node ){
+                            candidates[0].node.__modifierClone = true;
+                            return candidates[0].node;
+                        }
+                        //modifier told us to ignore this element.
+                        return Promise.resolve();
                     }
                     return node.cloneNode(false);
                 },function(){
@@ -166,9 +170,11 @@
                 });
             })
             .then(function (clone) {
+                if( !clone ) return Promise.resolve();
                 return cloneChildren(node, clone, filter,groupName);
             })
             .then(function (clone) {
+                if( !clone ) return Promise.resolve();
                 return processClone(node, clone);
             });
 

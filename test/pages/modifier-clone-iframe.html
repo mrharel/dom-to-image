@@ -13,6 +13,9 @@
 </div>
 <div class="page">
   <iframe width="560" height="315" src="https://www.youtube.com/embed/GF60Iuh643I" frameborder="0" allowfullscreen></iframe>
+  <script>
+    var d=4;
+  </script>
 </div>
 <div class="capture">
   <button>capture with general modifier</button>
@@ -24,12 +27,14 @@
 <script src="/bower_components/jquery/dist/jquery.min.js"></script>
 <script src="/src/modifiers/modifier-clone-iframe.js"></script>
 <script src="/src/modifiers/error-handler.js"></script>
+<script src="/src/modifiers/modifier-cleaner.js"></script>
 <script src="/src/dom-to-image.js"></script>
 
 
 <script>
   domtoimage.registerModifier("clone",ModifierCloneIframe,{isSelector:"iframe"},1);
   domtoimage.registerModifier("clone",ModifierCloneYouTube,{isSelector:"iframe"},1,"youtube");
+  domtoimage.registerModifier("clone",ModifierCleaner,{},100);
   domtoimage.registerErrorHandler(ErrorHandler);
 
   $(".capture button").click(function(){
