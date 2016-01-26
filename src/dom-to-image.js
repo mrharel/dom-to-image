@@ -315,12 +315,10 @@
             .then(function (node) {
                 node.setAttribute('xmlns', 'http://www.w3.org/1999/xhtml');
                 var xml =  new XMLSerializer().serializeToString(node);
-                console.log("*** XML START ***");
-                console.log(xml);
-                console.log("*** XML END ***");
-
-
-                return xml.replace(/margin: 50px/,"");
+                //console.log("*** XML START ***");
+                //console.log(xml);
+                //console.log("*** XML END ***");
+                return xml;
             })
             .then(util.escapeXhtml)
             .then(function (xhtml) {
@@ -546,7 +544,10 @@
                 image.onload = function () {
                     resolve(image);
                 };
-                image.onerror = reject;
+                image.onerror = function(){
+                    console.log("failed to generate image from svg");
+                    reject();
+                };
                 image.src = uri;
             });
         }
@@ -802,6 +803,7 @@
                   //
                   //        img.onload = function(){
                   //            var canvas = document.createElement("canvas");
+                  //            var canvas = document.createElement("canvas");
                   //            canvas.width = img.width;
                   //            canvas.height = img.height;
                   //
@@ -831,7 +833,10 @@
                     .then(function (dataUrl) {
                         return new Promise(function (resolve, reject) {
                             element.onload = resolve;
-                            element.onerror = reject;
+                            element.onerror = function(){
+                                console.log("failed to load image from data url");
+                                reject();
+                            }
                             element.src = dataUrl;
                         });
                     });
