@@ -33,6 +33,16 @@
                     }
 
             }
+            if( /^FB:/.test(node.tagName) ){
+                var $div = $('<div></div>');
+                $div.css({
+                    width: $(node).outerWidth(),
+                    height: $(node).outerHeight(),
+                    display: $(node).css("display")
+                });
+                resolve($div.get(0));
+                return;
+            }
             resolve(node);
         });
 
