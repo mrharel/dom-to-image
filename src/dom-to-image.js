@@ -140,7 +140,7 @@
         return Promise.resolve(node)
             .then(function (node) {
               var modArr = getModifiers("clone",node,groupName);
-              if( !modArr.length ) return node.cloneNode(false);
+              if( !modArr.length ) return util.cloneNode(node);//node.cloneNode(false);
               var arr = [];
               for( var i=0; i<modArr.length ; i++ ){
                   arr.push( modArr[i].modifier({node:node}));
@@ -164,9 +164,9 @@
                         //modifier told us to ignore this element.
                         return Promise.resolve();
                     }
-                    return node.cloneNode(false);
+                    return util.cloneNode(node);//node.cloneNode(false);
                 },function(){
-                    return node.cloneNode(false);
+                    return util.cloneNode(node);//node.cloneNode(false);
                 });
             })
             .then(function (clone) {
@@ -216,8 +216,12 @@
 
             function cloneStyle() {
                 if( clone.__modifierClone ) return;
-
                 copyStyle(global.window.getComputedStyle(original), clone.style);
+                if( original.tagName === 'BODY' ){
+                    //TODO replace jquery with raw js code
+                    $(clone).css("height",original.scrollHeight);
+
+                }
 
                 function copyStyle(source, target) {
                     if (source.cssText) target.cssText = source.cssText;
@@ -366,8 +370,40 @@
             escapeXhtml: escapeXhtml,
             makeImage: makeImage,
             nodeWidth: nodeWidth,
-            nodeHeight: nodeHeight
+            nodeHeight: nodeHeight,
+            cloneNode: cloneNode,
+            removeAllAttributes: removeAllAttributes
         };
+
+        function cloneNode(node){
+            var clone = node.cloneNode(false);
+            util.removeAllAttributes(clone);
+
+            return clone;
+        }
+
+        function removeAllAttributes(node){
+            if( !node || !node.attributes ) return;
+            var attr = [];
+            for( var i=0; i<node.attributes.length; i++ ){
+                attr.push(node.attributes[i].name);
+            }
+            //var attr = node.attrributes.map(function(val){
+            //    return val.name;
+            //});
+
+            attr.forEach(function(val){
+                switch(val.toLowerCase()){
+                    case "src":
+                    case "href":
+                    case "id":
+                    case "width":
+                    case "height":
+                        return;
+                }
+                node.removeAttribute(val);
+            });
+        }
 
         function nodeWidth(node,withMargin){
             var width = node.scrollWidth;
