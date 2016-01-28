@@ -7,7 +7,10 @@ this failed the whole process.
 
 solution: maybe to go over all elements and see that they don't have attributes with "  or ' in thie attribute value.
 
+
 * body real height - when trying to get the body in onlife i found out that the image is cropped to the site of the window.
 after some investigating it turns out that the body has style of height:100% so it gets the height of the window.
 
 solution: maybe check the scrollHeight in case the root element has height:100% and dosn't have overflow-y: hidden;
+
+* maybe we can switch from http request to image objects to use the browser cache
