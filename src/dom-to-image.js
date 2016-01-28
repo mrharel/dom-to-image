@@ -584,6 +584,7 @@
                     console.log("failed to generate image from svg");
                     reject();
                 };
+                console.log("loading image from svg  ");
                 image.src = uri;
             });
         }

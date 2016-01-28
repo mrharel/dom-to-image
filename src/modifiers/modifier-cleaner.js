@@ -5,6 +5,10 @@
 
         var node = data.node;
         return new Promise(function(resolve,reject){
+            if( node.nodeType == 8 ){
+                resolve();
+                return;
+            }
             var display = $(node).css("display");
             if( display === "none"){
                 resolve();

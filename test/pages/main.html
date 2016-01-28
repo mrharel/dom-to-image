@@ -17,9 +17,16 @@
 
 
     <script src="/bower_components/jquery/dist/jquery.min.js"></script>
+    <script src="/src/modifiers/error-handler.js"></script>
+    <script src="/src/modifiers/modifier-clone-iframe.js"></script>
+    <script src="/src/modifiers/modifier-cleaner.js"></script>
     <script src="/src/dom-to-image.js"></script>
 
     <script>
+        domtoimage.registerModifier("clone",ModifierCloneIframe,{isSelector:"iframe"},1);
+        domtoimage.registerModifier("clone",ModifierCleaner,{},100);
+        domtoimage.registerErrorHandler(ErrorHandler);
+
         $(".capture button").click(function(){
             var node = $(".page").get(0);
             domtoimage.toPng(node)
