@@ -15,3 +15,5 @@ solution: maybe check the scrollHeight in case the root element has height:100% 
 
 * maybe we can switch from http request to image objects to use the browser cache
 check this example: https://developer.mozilla.org/en-US/docs/Web/HTML/CORS_enabled_image
+
+i tried this solution and was not very good.

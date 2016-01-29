@@ -41,13 +41,14 @@
         filters = filters || {};
         groupName = groupName || defaultGroupName;
         priority = priority || 0;
-        if( type !== 'clone' && type !== 'style'&& type !== 'error' ){
+        if( type !== 'clone' && type !== 'style'&& type !== 'error' && type !== 'xml' ){
             throw new Error("Unknown modifier type " + type);
         }
         if( !modifierGroups[groupName] ){
             modifierGroups[groupName] = {
                 clone : [],
-                style : []
+                style : [],
+                xml : []
             };
         }
         var modifiers = modifierGroups[groupName];
@@ -101,6 +102,7 @@
             .then(embedFonts)
             .then(inlineImages)
             .then(function (clone) {
+                if( !clone ) return null;
                 if (options.bgcolor) clone.style.backgroundColor = options.bgcolor;
                 return clone;
             })
@@ -303,6 +305,7 @@
     function embedFonts(node) {
         return fontFaces.resolveAll()
             .then(function (cssText) {
+                if( !node ) return null;
                 var styleNode = document.createElement('style');
                 node.appendChild(styleNode);
                 styleNode.appendChild(document.createTextNode(cssText));
@@ -317,7 +320,7 @@
             });
     }
 
-    function makeSvgDataUri(node, width, height) {
+    function makeSvgDataUri(node, width, height,groupName) {
         //root node should not be with margin.
         node.style.marginBottom = 0;
         node.style.marginTop = 0;
@@ -329,10 +332,20 @@
             .then(function (node) {
                 node.setAttribute('xmlns', 'http://www.w3.org/1999/xhtml');
                 var xml =  new XMLSerializer().serializeToString(node);
-                //console.log("*** XML START ***");
-                //console.log(xml);
-                //console.log("*** XML END ***");
-                return xml;
+
+                var modArr = getModifiers("xml",node,groupName) || [];
+                //var arr = [];
+                var modifiedXml = xml;
+                for( var i=0; i<modArr.length ; i++ ){
+                  var result = modArr[i].modifier(modifiedXml);
+                    if( result ){
+                        modifiedXml = result;
+                    }
+                }
+                console.log("*** XML START ***");
+                console.log(modifiedXml);
+                console.log("*** XML END ***");
+                return modifiedXml;
             })
             .then(util.escapeXhtml)
             .then(function (xhtml) {
@@ -610,8 +623,70 @@
             });
         }
 
+        function isImage(url){
+            return /\.(png|jpg|jpeg|bmp|gif|tiff|svg|webp)(\?.*|#.*|)$/.test(url);
+        }
+
+        function loadImage(url){
+            return new Promise( function(resolve,reject){
+                var img = new Image,
+                  canvas = document.createElement("canvas"),
+                  ctx = canvas.getContext("2d"),
+                  src = url;
+
+                img.crossOrigin = "Anonymous";
+
+                img.onload = function() {
+                    canvas.width = img.width;
+                    canvas.height = img.height;
+                    ctx.drawImage( img, 0, 0 );
+                    //localStorage.setItem( "savedImageData", canvas.toDataURL("image/png") );
+                    var content = canvas.toDataURL("image/png").split(/,/)[1];
+                    resolve(content);
+                };
+                img.onerror = function(){
+                    var modArr = errorHandlers;
+                    if( !modArr.length ){
+                        reject(new Error('Cannot fetch resource ' + url ));
+                        return;
+                    }
+                    var arr = [];
+                    for( var i=0; i<modArr.length ; i++ ){
+                        arr.push( modArr[i]({url:url,type:"network"}));
+                    }
+                    return Promise.all(arr)
+                      .then( function(results){
+                          for( var i=0; i<results.length; i++ ){
+                              if(  results[i]  ){
+                                  resolve(results[i]);
+                                  return;
+                              }
+                          }
+                          reject(new Error('Cannot fetch resource ' + url));
+
+                      },function(){
+                          reject(new Error('Cannot fetch resource ' + url ));
+                      });
+                }
+                img.src = src;
+    // make sure the load event fires for cached images too
+                if ( img.complete || img.complete === undefined ) {
+                    //img.src = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==";
+                    //img.src = src;
+                    console.log("***** image was cached, what do we do?");
+                }
+
+            });
+        }
+
         function getAndEncode(url) {
             const TIMEOUT = 30000;
+
+            //after some test i decided not to use that... was causing too much
+            //problems in loading images...
+            //if( isImage(url) ){
+            //    return loadImage(url);
+            //}
 
             return new Promise(function (resolve, reject) {
                 var request = new XMLHttpRequest();

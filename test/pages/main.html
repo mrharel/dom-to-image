@@ -26,6 +26,8 @@
     <script>
         domtoimage.registerModifier("clone",ModifierCloneIframe,{isSelector:"iframe"},1);
         domtoimage.registerModifier("clone",ModifierCleaner,{},100);
+        //domtoimage.registerModifier("xml",StyleCleaner,{},100);
+
         domtoimage.registerErrorHandler(ErrorHandler);
 
         $(".capture button").click(function(){

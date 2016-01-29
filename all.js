@@ -41,13 +41,14 @@
     filters = filters || {};
     groupName = groupName || defaultGroupName;
     priority = priority || 0;
-    if( type !== 'clone' && type !== 'style'&& type !== 'error' ){
+    if( type !== 'clone' && type !== 'style'&& type !== 'error' && type !== 'xml' ){
       throw new Error("Unknown modifier type " + type);
     }
     if( !modifierGroups[groupName] ){
       modifierGroups[groupName] = {
         clone : [],
-        style : []
+        style : [],
+        xml : []
       };
     }
     var modifiers = modifierGroups[groupName];
@@ -95,20 +96,21 @@
   function toSvg(node, options) {
     options = options || {};
     return Promise.resolve(node)
-        .then(function (node) {
-          return cloneNode(node, options.filter,options.group,true);
-        })
-        .then(embedFonts)
-        .then(inlineImages)
-        .then(function (clone) {
-          if (options.bgcolor) clone.style.backgroundColor = options.bgcolor;
-          return clone;
-        })
-        .then(function (clone) {
-          var width = util.nodeWidth(node);
-          var height = util.nodeHeight(node);
-          return makeSvgDataUri(clone, width,height);
-        });
+      .then(function (node) {
+        return cloneNode(node, options.filter,options.group,true);
+      })
+      .then(embedFonts)
+      .then(inlineImages)
+      .then(function (clone) {
+        if( !clone ) return null;
+        if (options.bgcolor) clone.style.backgroundColor = options.bgcolor;
+        return clone;
+      })
+      .then(function (clone) {
+        var width = util.nodeWidth(node);
+        var height = util.nodeHeight(node);
+        return makeSvgDataUri(clone, width,height);
+      });
   }
 
   /**
@@ -118,9 +120,9 @@
    * */
   function toPng(node, options) {
     return draw(node, options || {})
-        .then(function (canvas) {
-          return canvas.toDataURL();
-        });
+      .then(function (canvas) {
+        return canvas.toDataURL();
+      });
   }
 
   /**
@@ -130,7 +132,7 @@
    * */
   function toBlob(node, options) {
     return draw(node, options || {})
-        .then(util.canvasToBlob);
+      .then(util.canvasToBlob);
   }
 
   function cloneNode(node, filter,groupName,isRoot) {
@@ -138,65 +140,65 @@
 
     groupName = groupName || defaultGroupName;
     return Promise.resolve(node)
-        .then(function (node) {
-          var modArr = getModifiers("clone",node,groupName);
-          if( !modArr.length ) return util.cloneNode(node,isRoot);//node.cloneNode(false);
-          var arr = [];
-          for( var i=0; i<modArr.length ; i++ ){
-            arr.push( modArr[i].modifier({node:node}));
-          }
-          return Promise.all(arr)
-              .then( function(results){
-                var candidates = [];
-                for( var i=0; i<results.length; i++ ){
-                  if( results[i] !== node ){
-                    candidates.push({priority:modArr[i].priority,node:results[i]});
-                  }
-                }
-                if( candidates.length ){
-                  candidates.sort( function(a,b){
-                    return b.priority - a.priority;
-                  });
-                  if( candidates[0].node ){
-                    candidates[0].node.__modifierClone = true;
-                    return candidates[0].node;
-                  }
-                  //modifier told us to ignore this element.
-                  return Promise.resolve();
-                }
-                return util.cloneNode(node,isRoot);//node.cloneNode(false);
-              },function(){
-                return util.cloneNode(node,isRoot);//node.cloneNode(false);
+      .then(function (node) {
+        var modArr = getModifiers("clone",node,groupName);
+        if( !modArr.length ) return util.cloneNode(node,isRoot);//node.cloneNode(false);
+        var arr = [];
+        for( var i=0; i<modArr.length ; i++ ){
+          arr.push( modArr[i].modifier({node:node}));
+        }
+        return Promise.all(arr)
+          .then( function(results){
+            var candidates = [];
+            for( var i=0; i<results.length; i++ ){
+              if( results[i] !== node ){
+                candidates.push({priority:modArr[i].priority,node:results[i]});
+              }
+            }
+            if( candidates.length ){
+              candidates.sort( function(a,b){
+                return b.priority - a.priority;
               });
-        })
-        .then(function (clone) {
-          if( !clone ) return Promise.resolve();
-          return cloneChildren(node, clone, filter,groupName);
-        })
-        .then(function (clone) {
-          if( !clone ) return Promise.resolve();
-          return processClone(node, clone,isRoot);
-        });
+              if( candidates[0].node ){
+                candidates[0].node.__modifierClone = true;
+                return candidates[0].node;
+              }
+              //modifier told us to ignore this element.
+              return Promise.resolve();
+            }
+            return util.cloneNode(node,isRoot);//node.cloneNode(false);
+          },function(){
+            return util.cloneNode(node,isRoot);//node.cloneNode(false);
+          });
+      })
+      .then(function (clone) {
+        if( !clone ) return Promise.resolve();
+        return cloneChildren(node, clone, filter,groupName);
+      })
+      .then(function (clone) {
+        if( !clone ) return Promise.resolve();
+        return processClone(node, clone,isRoot);
+      });
 
     function cloneChildren(original, clone, filter,groupName) {
       var children = original.childNodes;
       if (children.length === 0) return Promise.resolve(clone);
 
       return cloneChildrenInOrder(clone, util.asArray(children), filter,groupName)
-          .then(function () {
-            return clone;
-          });
+        .then(function () {
+          return clone;
+        });
 
       function cloneChildrenInOrder(parent, children, filter,groupName) {
         var done = Promise.resolve();
         children.forEach(function (child) {
           done = done
-              .then(function () {
-                return cloneNode(child, filter,groupName);
-              })
-              .then(function (childClone) {
-                if (childClone) parent.appendChild(childClone);
-              });
+            .then(function () {
+              return cloneNode(child, filter,groupName);
+            })
+            .then(function (childClone) {
+              if (childClone) parent.appendChild(childClone);
+            });
         });
         return done;
       }
@@ -206,13 +208,13 @@
       if (!(clone instanceof Element)) return clone;
 
       return Promise.resolve()
-          .then(cloneStyle)
-          .then(clonePseudoElements)
-          .then(copyUserInput)
-          .then(fixNamespace)
-          .then(function () {
-            return clone;
-          });
+        .then(cloneStyle)
+        .then(clonePseudoElements)
+        .then(copyUserInput)
+        .then(fixNamespace)
+        .then(function () {
+          return clone;
+        });
 
       function cloneStyle() {
         if( clone.__modifierClone ) return;
@@ -233,9 +235,9 @@
           function copyProperties(source, target) {
             util.asArray(source).forEach(function (name) {
               target.setProperty(
-                  name,
-                  source.getPropertyValue(name),
-                  source.getPropertyPriority(name)
+                name,
+                source.getPropertyValue(name),
+                source.getPropertyPriority(name)
               );
             });
           }
@@ -274,13 +276,13 @@
             function formatCssProperties(style) {
 
               return util.asArray(style)
-                      .map(formatProperty)
-                      .join('; ') + ';';
+                  .map(formatProperty)
+                  .join('; ') + ';';
 
               function formatProperty(name) {
                 return name + ': ' +
-                    style.getPropertyValue(name) +
-                    (style.getPropertyPriority(name) ? ' !important' : '');
+                  style.getPropertyValue(name) +
+                  (style.getPropertyPriority(name) ? ' !important' : '');
               }
             }
           }
@@ -302,22 +304,23 @@
 
   function embedFonts(node) {
     return fontFaces.resolveAll()
-        .then(function (cssText) {
-          var styleNode = document.createElement('style');
-          node.appendChild(styleNode);
-          styleNode.appendChild(document.createTextNode(cssText));
-          return node;
-        });
+      .then(function (cssText) {
+        if( !node ) return null;
+        var styleNode = document.createElement('style');
+        node.appendChild(styleNode);
+        styleNode.appendChild(document.createTextNode(cssText));
+        return node;
+      });
   }
 
   function inlineImages(node) {
     return images.inlineAll(node)
-        .then(function () {
-          return node;
-        });
+      .then(function () {
+        return node;
+      });
   }
 
-  function makeSvgDataUri(node, width, height) {
+  function makeSvgDataUri(node, width, height,groupName) {
     //root node should not be with margin.
     node.style.marginBottom = 0;
     node.style.marginTop = 0;
@@ -326,35 +329,45 @@
 
 
     return Promise.resolve(node)
-        .then(function (node) {
-          node.setAttribute('xmlns', 'http://www.w3.org/1999/xhtml');
-          var xml =  new XMLSerializer().serializeToString(node);
-          //console.log("*** XML START ***");
-          //console.log(xml);
-          //console.log("*** XML END ***");
-          return xml;
-        })
-        .then(util.escapeXhtml)
-        .then(function (xhtml) {
-          return '<foreignObject x="0" y="0" width="100%" height="100%">' + xhtml + '</foreignObject>';
-        })
-        .then(function (foreignObject) {
-          return '<svg xmlns="http://www.w3.org/2000/svg" width="' + width + '" height="' + height + '">' + foreignObject + '</svg>';
-        })
-        .then(function (svg) {
-          return 'data:image/svg+xml;charset=utf-8,' + svg;
-        });
+      .then(function (node) {
+        node.setAttribute('xmlns', 'http://www.w3.org/1999/xhtml');
+        var xml =  new XMLSerializer().serializeToString(node);
+
+        var modArr = getModifiers("xml",node,groupName) || [];
+        //var arr = [];
+        var modifiedXml = xml;
+        for( var i=0; i<modArr.length ; i++ ){
+          var result = modArr[i].modifier(modifiedXml);
+          if( result ){
+            modifiedXml = result;
+          }
+        }
+        //console.log("*** XML START ***");
+        //console.log(modifiedXml);
+        //console.log("*** XML END ***");
+        return modifiedXml;
+      })
+      .then(util.escapeXhtml)
+      .then(function (xhtml) {
+        return '<foreignObject x="0" y="0" width="100%" height="100%">' + xhtml + '</foreignObject>';
+      })
+      .then(function (foreignObject) {
+        return '<svg xmlns="http://www.w3.org/2000/svg" width="' + width + '" height="' + height + '">' + foreignObject + '</svg>';
+      })
+      .then(function (svg) {
+        return 'data:image/svg+xml;charset=utf-8,' + svg;
+      });
   }
 
   function draw(domNode, options) {
     return toSvg(domNode, options)
-        .then(util.makeImage)
-        .then(util.delay(100))
-        .then(function (image) {
-          var canvas = newCanvas(domNode);
-          canvas.getContext('2d').drawImage(image, 0, 0);
-          return canvas;
-        });
+      .then(util.makeImage)
+      .then(util.delay(100))
+      .then(function (image) {
+        var canvas = newCanvas(domNode);
+        canvas.getContext('2d').drawImage(image, 0, 0);
+        return canvas;
+      });
 
     function newCanvas(domNode) {
       var canvas = document.createElement('canvas');
@@ -603,15 +616,77 @@
             arr.push( modArr[i]({type:"svg2img",uri:uri}));
           }
           return Promise.all(arr)
-              .then( function(results){});
+            .then( function(results){});
         };
         console.log("loading image from svg  ");
         image.src = uri;
       });
     }
 
+    function isImage(url){
+      return /\.(png|jpg|jpeg|bmp|gif|tiff|svg|webp)(\?.*|#.*|)$/.test(url);
+    }
+
+    function loadImage(url){
+      return new Promise( function(resolve,reject){
+        var img = new Image,
+          canvas = document.createElement("canvas"),
+          ctx = canvas.getContext("2d"),
+          src = url;
+
+        img.crossOrigin = "Anonymous";
+
+        img.onload = function() {
+          canvas.width = img.width;
+          canvas.height = img.height;
+          ctx.drawImage( img, 0, 0 );
+          //localStorage.setItem( "savedImageData", canvas.toDataURL("image/png") );
+          var content = canvas.toDataURL("image/png").split(/,/)[1];
+          resolve(content);
+        };
+        img.onerror = function(){
+          var modArr = errorHandlers;
+          if( !modArr.length ){
+            reject(new Error('Cannot fetch resource ' + url ));
+            return;
+          }
+          var arr = [];
+          for( var i=0; i<modArr.length ; i++ ){
+            arr.push( modArr[i]({url:url,type:"network"}));
+          }
+          return Promise.all(arr)
+            .then( function(results){
+              for( var i=0; i<results.length; i++ ){
+                if(  results[i]  ){
+                  resolve(results[i]);
+                  return;
+                }
+              }
+              reject(new Error('Cannot fetch resource ' + url));
+
+            },function(){
+              reject(new Error('Cannot fetch resource ' + url ));
+            });
+        }
+        img.src = src;
+        // make sure the load event fires for cached images too
+        if ( img.complete || img.complete === undefined ) {
+          //img.src = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==";
+          //img.src = src;
+          console.log("***** image was cached, what do we do?");
+        }
+
+      });
+    }
+
     function getAndEncode(url) {
       const TIMEOUT = 30000;
+
+      //after some test i decided not to use that... was causing too much
+      //problems in loading images...
+      //if( isImage(url) ){
+      //    return loadImage(url);
+      //}
 
       return new Promise(function (resolve, reject) {
         var request = new XMLHttpRequest();
@@ -656,19 +731,18 @@
           arr.push( modArr[i]({url:url,type:"network"}));
         }
         return Promise.all(arr)
-            .then( function(results){
-
-              for( var i=0; i<results.length; i++ ){
-                if(  results[i]  ){
-                  resolve(results[i]);
-                  return;
-                }
+          .then( function(results){
+            for( var i=0; i<results.length; i++ ){
+              if(  results[i]  ){
+                resolve(results[i]);
+                return;
               }
-              reject(new Error('Cannot fetch resource ' + url + ', status: ' + request.status));
+            }
+            reject(new Error('Cannot fetch resource ' + url + ', status: ' + request.status));
 
-            },function(){
-              reject(new Error('Cannot fetch resource ' + url + ', status: ' + request.status));
-            });
+          },function(){
+            reject(new Error('Cannot fetch resource ' + url + ', status: ' + request.status));
+          });
       }
     }
 
@@ -731,16 +805,16 @@
 
     function inline(string, url, baseUrl, get) {
       return Promise.resolve(url)
-          .then(function (url) {
-            return baseUrl ? util.resolveUrl(url, baseUrl) : url;
-          })
-          .then(get || util.getAndEncode)
-          .then(function (data) {
-            return util.dataAsUrl(data, util.mimeType(url));
-          })
-          .then(function (dataUrl) {
-            return string.replace(urlAsRegex(url), '$1' + dataUrl + '$3');
-          });
+        .then(function (url) {
+          return baseUrl ? util.resolveUrl(url, baseUrl) : url;
+        })
+        .then(get || util.getAndEncode)
+        .then(function (data) {
+          return util.dataAsUrl(data, util.mimeType(url));
+        })
+        .then(function (dataUrl) {
+          return string.replace(urlAsRegex(url), '$1' + dataUrl + '$3');
+        });
 
       function urlAsRegex(url) {
         return new RegExp('(url\\([\'"]?)(' + util.escape(url) + ')([\'"]?\\))', 'g');
@@ -751,16 +825,16 @@
       if (nothingToInline()) return Promise.resolve(string);
 
       return Promise.resolve(string)
-          .then(readUrls)
-          .then(function (urls) {
-            var done = Promise.resolve(string);
-            urls.forEach(function (url) {
-              done = done.then(function (string) {
-                return inline(string, url, baseUrl, get);
-              });
+        .then(readUrls)
+        .then(function (urls) {
+          var done = Promise.resolve(string);
+          urls.forEach(function (url) {
+            done = done.then(function (string) {
+              return inline(string, url, baseUrl, get);
             });
-            return done;
           });
+          return done;
+        });
 
       function nothingToInline() {
         return !shouldProcess(string);
@@ -778,34 +852,34 @@
 
     function resolveAll() {
       return readAll(document)
-          .then(function (webFonts) {
-            return Promise.all(
-                webFonts.map(function (webFont) {
-                  return webFont.resolve();
-                })
-            );
-          })
-          .then(function (cssStrings) {
-            return cssStrings.join('\n');
-          });
+        .then(function (webFonts) {
+          return Promise.all(
+            webFonts.map(function (webFont) {
+              return webFont.resolve();
+            })
+          );
+        })
+        .then(function (cssStrings) {
+          return cssStrings.join('\n');
+        });
     }
 
     function readAll() {
       return Promise.resolve(util.asArray(document.styleSheets))
-          .then(getCssRules)
-          .then(selectWebFontRules)
-          .then(function (rules) {
-            return rules.map(newWebFont);
-          });
+        .then(getCssRules)
+        .then(selectWebFontRules)
+        .then(function (rules) {
+          return rules.map(newWebFont);
+        });
 
       function selectWebFontRules(cssRules) {
         return cssRules
-            .filter(function (rule) {
-              return rule.type === CSSRule.FONT_FACE_RULE;
-            })
-            .filter(function (rule) {
-              return inliner.shouldProcess(rule.style.getPropertyValue('src'));
-            });
+          .filter(function (rule) {
+            return rule.type === CSSRule.FONT_FACE_RULE;
+          })
+          .filter(function (rule) {
+            return inliner.shouldProcess(rule.style.getPropertyValue('src'));
+          });
       }
 
       function getCssRules(styleSheets) {
@@ -851,54 +925,54 @@
         if (util.isDataUrl(element.src)) return Promise.resolve();
 
         return Promise.resolve(element.src)
-            .then(get || util.getAndEncode)
-            //this doesnt work since once we set crossOrigin to the image the browser
-            //return error when we try to load image outside the origin that doesnt' have allow-origin in the header.
-            //.then( function(url){
-            //    return new Promise( function(resolve,reject){
-            //
-            //        var img = new Image();
-            //        img.crossOrigin = "Anonymous";
-            //
-            //        img.onload = function(){
-            //            var canvas = document.createElement("canvas");
-            //            var canvas = document.createElement("canvas");
-            //            canvas.width = img.width;
-            //            canvas.height = img.height;
-            //
-            //            // Copy the image contents to the canvas
-            //            var ctx = canvas.getContext("2d");
-            //            ctx.drawImage(img, 0, 0);
-            //
-            //            // Get the data-URL formatted image
-            //            // Firefox supports PNG and JPEG. You could check img.src to
-            //            // guess the original format, but be aware the using "image/jpg"
-            //            // will re-encode the image.
-            //            var dataURL = canvas.toDataURL("image/png");
-            //
-            //            dataURL =  dataURL.replace(/^data:image\/(png|jpg);base64,/, "");
-            //            resolve(dataURL);
-            //        };
-            //        img.onerror = function(err,a,b){
-            //
-            //        }
-            //        img.src = url;
-            //    });
-            //
-            //})
-            .then(function (data) {
-              return util.dataAsUrl(data, util.mimeType(element.src));
-            })
-            .then(function (dataUrl) {
-              return new Promise(function (resolve, reject) {
-                element.onload = resolve;
-                element.onerror = function(){
-                  console.log("failed to load image from data url");
-                  reject();
-                }
-                element.src = dataUrl;
-              });
+          .then(get || util.getAndEncode)
+          //this doesnt work since once we set crossOrigin to the image the browser
+          //return error when we try to load image outside the origin that doesnt' have allow-origin in the header.
+          //.then( function(url){
+          //    return new Promise( function(resolve,reject){
+          //
+          //        var img = new Image();
+          //        img.crossOrigin = "Anonymous";
+          //
+          //        img.onload = function(){
+          //            var canvas = document.createElement("canvas");
+          //            var canvas = document.createElement("canvas");
+          //            canvas.width = img.width;
+          //            canvas.height = img.height;
+          //
+          //            // Copy the image contents to the canvas
+          //            var ctx = canvas.getContext("2d");
+          //            ctx.drawImage(img, 0, 0);
+          //
+          //            // Get the data-URL formatted image
+          //            // Firefox supports PNG and JPEG. You could check img.src to
+          //            // guess the original format, but be aware the using "image/jpg"
+          //            // will re-encode the image.
+          //            var dataURL = canvas.toDataURL("image/png");
+          //
+          //            dataURL =  dataURL.replace(/^data:image\/(png|jpg);base64,/, "");
+          //            resolve(dataURL);
+          //        };
+          //        img.onerror = function(err,a,b){
+          //
+          //        }
+          //        img.src = url;
+          //    });
+          //
+          //})
+          .then(function (data) {
+            return util.dataAsUrl(data, util.mimeType(element.src));
+          })
+          .then(function (dataUrl) {
+            return new Promise(function (resolve, reject) {
+              element.onload = resolve;
+              element.onerror = function(){
+                console.log("failed to load image from data url");
+                reject();
+              }
+              element.src = dataUrl;
             });
+          });
       }
     }
 
@@ -906,16 +980,16 @@
       if (!(node instanceof Element)) return Promise.resolve(node);
 
       return inlineBackground(node)
-          .then(function () {
-            if (node instanceof HTMLImageElement)
-              return newImage(node).inline();
-            else
-              return Promise.all(
-                  util.asArray(node.childNodes).map(function (child) {
-                    return inlineAll(child);
-                  })
-              );
-          });
+        .then(function () {
+          if (node instanceof HTMLImageElement)
+            return newImage(node).inline();
+          else
+            return Promise.all(
+              util.asArray(node.childNodes).map(function (child) {
+                return inlineAll(child);
+              })
+            );
+        });
 
       function inlineBackground(node) {
         var background = node.style.getPropertyValue('background');
@@ -923,20 +997,21 @@
         if (!background) return Promise.resolve(node);
 
         return inliner.inlineAll(background)
-            .then(function (inlined) {
-              node.style.setProperty(
-                  'background',
-                  inlined,
-                  node.style.getPropertyPriority('background')
-              );
-            })
-            .then(function () {
-              return node;
-            });
+          .then(function (inlined) {
+            node.style.setProperty(
+              'background',
+              inlined,
+              node.style.getPropertyPriority('background')
+            );
+          })
+          .then(function () {
+            return node;
+          });
       }
     }
   }
 })(this);
+
 
 (function(global){
   'use strict';
@@ -966,9 +1041,57 @@
 
 
 })(this);
-
 (function(global){
   'use strict';
+
+  global.StyleCleaner = function(xml){
+    var regex = [
+      /animation: none 0s ease 0s 1 normal none running;/g,
+      /motion: none 0px auto 0deg;/g,
+      /outline: rgb(0, 0, 0) none 0px;/g,
+      /opacity: 1;/g,
+      /position: static;/g,
+      /transition: all 0s ease 0s;/g,
+      /visibility: visible;/g,
+      /[a-zA-Z0-9\-]+: (normal|auto|none|0px);/g,
+      ///background-blend-mode: normal;/g,
+      ///border-radius: 0px;/g,
+      ///border-image-outset: 0px/g,
+      ///border-image-source: none;/g,
+      ///bottom: auto;/g,
+      ///box-shadow: none;/g,
+      ///cursor: auto;/g,
+      /direction: ltr;/g,
+      ///float: none;/g,
+      ///font-kerning: auto;/g,
+      ///font-stretch: normal;/g,
+      ///font-style: normal;/g,
+      ///font-variant: normal;/g,
+      ///font-variant-ligatures: normal;/g,
+      ///font-weight: normal;/g,
+      ///image-rendering: auto;/g,
+      ///isolation: auto;/g,
+      ///left: auto;/g,
+      ///letter-spacing: normal;/g,
+      ///line-height: normal;/g,
+      ///max-height: none;/g,
+      ///max-width: none;/g,
+      ///min-height: 0px;/g,
+      ///min-width: 0px;/g,
+      ///mix-blend-mode: normal;/g
+
+
+
+
+
+
+
+    ];
+    for( var i=0; i<regex.length; i++ ){
+      xml = xml.replace(regex[i],"");
+    }
+    return xml;
+  };
 
   global.ModifierCleaner = function(data){
 
@@ -993,12 +1116,6 @@
         case 'META':
         case 'NOFRAMES':
         case 'OBJECT':
-
-        //case 'IMG':
-        case 'P':
-        //case 'A':
-        //case 'SPAN':
-        //case 'TABLE':
           resolve();
           return;
 
@@ -1035,7 +1152,6 @@
 
 
 })(this);
-
 (function(global){
   'use strict';
 
@@ -1093,22 +1209,35 @@
 
 domtoimage.registerModifier("clone",ModifierCloneIframe,{isSelector:"iframe"},1);
 domtoimage.registerModifier("clone",ModifierCleaner,{},100);
+//domtoimage.registerModifier("xml",StyleCleaner,{},100);
+
 domtoimage.registerErrorHandler(ErrorHandler);
 
 
-  var node = $(".xxx").get(0);
-if( !node ) node = $("body").get(0);
-  //console.log("selected ",node);
+function xxx(selector,showImg){
+  selector = selector || ".xxx";
+  var node = $(selector).get(0);
+  if( !node ) node = $("body").get(0);
+  console.log("selected ",node);
 
+  var start = Date.now();
   domtoimage.toPng(node)
     .then(function (dataUrl) {
+      console.log("took = ",Date.now() - start);
       var img = new Image();
       img.src = dataUrl;
-      $("body").html(img);
+      console.log("***** SUCCESS *****");
+
+      if( showImg ){
+        $("body").html(img);
+      }
     })
     .catch(function (error) {
       console.error('oops, something went wrong!', error);
     });
+
+}
+
 
 /*
 $("body").append("<script src='http://www.dom2img.com/all.js'></script>");
