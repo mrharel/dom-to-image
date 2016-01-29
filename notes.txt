@@ -5,7 +5,7 @@ after investigation i found out that the attributes are broken. like so:
 <img src="http://www.nrg.co.il/images/archive/135x87/1/675/520.jpg" alt="???????: ????" ?="" ??????="" ???="" ?????="" ?????="" ?????="" ???????"="" rel="nofollow" width="120" target="_blank">
 this failed the whole process.
 
-solution: maybe to go over all elements and see that they don't have attributes with "  or ' in thie attribute value.
+solution: maybe to go over all elements and see that they don't have attributes with "  or ' in thie attribute value. decided to remove all attributes except for some important ones. we do not need them to render an element.
 
 
 * body real height - when trying to get the body in onlife i found out that the image is cropped to the site of the window.

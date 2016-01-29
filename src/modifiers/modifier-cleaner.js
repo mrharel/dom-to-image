@@ -18,6 +18,12 @@
                 case 'SCRIPT':
                 case 'STYLE':
                 case 'LINK':
+                case 'NOSCRIPT':
+                case 'AUDIO':
+                case 'BASE':
+                case 'META':
+                case 'NOFRAMES':
+                case 'OBJECT':
                     resolve();
                     return;
 

@@ -96,7 +96,7 @@
         options = options || {};
         return Promise.resolve(node)
             .then(function (node) {
-                return cloneNode(node, options.filter,options.group);
+                return cloneNode(node, options.filter,options.group,true);
             })
             .then(embedFonts)
             .then(inlineImages)
@@ -133,14 +133,14 @@
             .then(util.canvasToBlob);
     }
 
-    function cloneNode(node, filter,groupName) {
+    function cloneNode(node, filter,groupName,isRoot) {
         if (filter && !filter(node)) return Promise.resolve();
 
         groupName = groupName || defaultGroupName;
         return Promise.resolve(node)
             .then(function (node) {
               var modArr = getModifiers("clone",node,groupName);
-              if( !modArr.length ) return util.cloneNode(node);//node.cloneNode(false);
+              if( !modArr.length ) return util.cloneNode(node,isRoot);//node.cloneNode(false);
               var arr = [];
               for( var i=0; i<modArr.length ; i++ ){
                   arr.push( modArr[i].modifier({node:node}));
@@ -164,9 +164,9 @@
                         //modifier told us to ignore this element.
                         return Promise.resolve();
                     }
-                    return util.cloneNode(node);//node.cloneNode(false);
+                    return util.cloneNode(node,isRoot);//node.cloneNode(false);
                 },function(){
-                    return util.cloneNode(node);//node.cloneNode(false);
+                    return util.cloneNode(node,isRoot);//node.cloneNode(false);
                 });
             })
             .then(function (clone) {
@@ -175,7 +175,7 @@
             })
             .then(function (clone) {
                 if( !clone ) return Promise.resolve();
-                return processClone(node, clone);
+                return processClone(node, clone,isRoot);
             });
 
         function cloneChildren(original, clone, filter,groupName) {
@@ -202,7 +202,7 @@
             }
         }
 
-        function processClone(original, clone) {
+        function processClone(original, clone,isRoot) {
             if (!(clone instanceof Element)) return clone;
 
             return Promise.resolve()
@@ -220,12 +220,15 @@
                 if( original.tagName === 'BODY' ){
                     //TODO replace jquery with raw js code
                     $(clone).css("height",original.scrollHeight);
-
                 }
 
                 function copyStyle(source, target) {
-                    if (source.cssText) target.cssText = source.cssText;
-                    else copyProperties(source, target);
+                    if (source.cssText){
+                        target.cssText = source.cssText;
+                    }
+                    else{
+                        copyProperties(source, target);
+                    }
 
                     function copyProperties(source, target) {
                         util.asArray(source).forEach(function (name) {
@@ -315,6 +318,13 @@
     }
 
     function makeSvgDataUri(node, width, height) {
+        //root node should not be with margin.
+        node.style.marginBottom = 0;
+        node.style.marginTop = 0;
+        node.style.marginLeft = 0;
+        node.style.marginRight = 0;
+
+
         return Promise.resolve(node)
             .then(function (node) {
                 node.setAttribute('xmlns', 'http://www.w3.org/1999/xhtml');
@@ -375,7 +385,10 @@
             removeAllAttributes: removeAllAttributes
         };
 
-        function cloneNode(node){
+        function cloneNode(node,isRoot){
+            if( node.nodeType == 8 ){
+                return null;
+            }
             var clone = node.cloneNode(false);
             util.removeAllAttributes(clone);
 
@@ -388,9 +401,6 @@
             for( var i=0; i<node.attributes.length; i++ ){
                 attr.push(node.attributes[i].name);
             }
-            //var attr = node.attrributes.map(function(val){
-            //    return val.name;
-            //});
 
             attr.forEach(function(val){
                 switch(val.toLowerCase()){
@@ -583,6 +593,17 @@
                 image.onerror = function(){
                     console.log("failed to generate image from svg");
                     reject();
+
+                    var modArr = errorHandlers;
+                    if( !modArr.length ){
+                        return;
+                    }
+                    var arr = [];
+                    for( var i=0; i<modArr.length ; i++ ){
+                        arr.push( modArr[i]({type:"svg2img",uri:uri}));
+                    }
+                    return Promise.all(arr)
+                        .then( function(results){});
                 };
                 console.log("loading image from svg  ");
                 image.src = uri;
