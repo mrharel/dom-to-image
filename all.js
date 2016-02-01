@@ -223,6 +223,15 @@
           //TODO replace jquery with raw js code
           $(clone).css("height",original.scrollHeight);
         }
+        //if( $(original).css("overflow-y") === 'auto' ||  $(original).css("overflow-y") === 'scroll' ){
+        //  var scrollTop = $(original).scrollTop();
+        //  if( scrollTop > 0  ){
+        //    var marginTop = parseInt($(clone).css("marginTop"));
+        //    $(clone).css("marginTop",marginTop-scrollTop);
+        //    //$(clone).scrollTop(scrollTop);
+        //
+        //  }
+        //}
 
         function copyStyle(source, target) {
           if (source.cssText){
@@ -403,6 +412,7 @@
         return null;
       }
       var clone = node.cloneNode(false);
+      clone.__original = node;
       util.removeAllAttributes(clone);
 
       return clone;
@@ -709,7 +719,7 @@
 
           var encoder = new FileReader();
           encoder.onloadend = function () {
-            var content = encoder.result.split(/,/)[1];
+            var content = encoder.result;//.split(/,/)[1];
             resolve(content);
           };
           encoder.readAsDataURL(request.response);
@@ -747,7 +757,7 @@
     }
 
     function dataAsUrl(content, type) {
-      return 'data:' + type + ';base64,' + content;
+      return content;
     }
 
     function escape(string) {
@@ -967,7 +977,7 @@
             return new Promise(function (resolve, reject) {
               element.onload = resolve;
               element.onerror = function(){
-                console.log("failed to load image from data url");
+                console.log("failed to load image from data url= ",element.__original);
                 reject();
               }
               element.src = dataUrl;
