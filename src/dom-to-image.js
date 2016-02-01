@@ -709,7 +709,8 @@
 
                     var encoder = new FileReader();
                     encoder.onloadend = function () {
-                        var content = encoder.result.split(/,/)[1];
+                        //var content = encoder.result.split(/,/)[1];
+                        var content = encoder.result;
                         resolve(content);
                     };
                     encoder.readAsDataURL(request.response);
@@ -747,7 +748,8 @@
         }
 
         function dataAsUrl(content, type) {
-            return 'data:' + type + ';base64,' + content;
+            //return 'data:' + type + ';base64,' + content;
+            return content;
         }
 
         function escape(string) {
@@ -961,7 +963,8 @@
                   //
                   //})
                     .then(function (data) {
-                        return util.dataAsUrl(data, util.mimeType(element.src));
+                        var mime = util.mimeType(element.src);
+                        return util.dataAsUrl(data, mime );
                     })
                     .then(function (dataUrl) {
                         return new Promise(function (resolve, reject) {
